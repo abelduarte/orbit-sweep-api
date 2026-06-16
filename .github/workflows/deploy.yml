@@ -1,0 +1,31 @@
+name: Deploy Orbit Sweep API
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+      - name: Install SSH key
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${{ secrets.VPS_PORT }}" "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+      - name: Sync files
+        run: |
+          rsync -az --delete -e "ssh -p ${{ secrets.VPS_PORT }} -i ~/.ssh/deploy_key" ./ "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/orbit-sweep-api/"
+      - name: Build and restart
+        run: |
+          ssh -p "${{ secrets.VPS_PORT }}" -i ~/.ssh/deploy_key "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "cd /opt/orbit-sweep-api && sudo docker compose up -d --build"
+      - name: Live health check
+        run: curl --fail --silent --show-error https://abel-duarte.com/api/orbit-sweep/health

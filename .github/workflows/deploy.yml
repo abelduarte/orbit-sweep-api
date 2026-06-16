@@ -28,4 +28,11 @@ jobs:
         run: |
           ssh -p "${{ secrets.VPS_PORT }}" -i ~/.ssh/deploy_key "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "cd /opt/orbit-sweep-api && sudo docker compose up -d --build"
       - name: Live health check
-        run: curl --fail --silent --show-error https://abel-duarte.com/api/orbit-sweep/health
+        run: |
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if curl --fail --silent --show-error https://abel-duarte.com/api/orbit-sweep/health; then
+              exit 0
+            fi
+            sleep 3
+          done
+          exit 1
